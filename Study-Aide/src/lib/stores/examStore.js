@@ -5,14 +5,20 @@ const STORAGE_KEY = 'study-aide-exams';
 // Load initial state function
 function loadInitialState() {
   if (typeof window === 'undefined') {
-    return { exams: [], currentExam: null };
+    return { exams: [], categories: [], currentExam: null };
   }
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : { exams: [], currentExam: null };
+    const state = saved ? JSON.parse(saved) : { exams: [], categories: [], currentExam: null };
+    // Ensure all required properties exist
+    return {
+      exams: Array.isArray(state.exams) ? state.exams : [],
+      categories: Array.isArray(state.categories) ? state.categories : [],
+      currentExam: state.currentExam || null
+    };
   } catch (e) {
     console.error('Failed to load state:', e);
-    return { exams: [], currentExam: null };
+    return { exams: [], categories: [], currentExam: null };
   }
 }
 
@@ -36,7 +42,9 @@ export const examStore = {
       courseMaterials: exam.courseMaterials,
       date: new Date().toISOString(),
       userAnswers: {},
-      submitted: false
+      submitted: false,
+      category: '',  // Add default category
+      tags: []  // Add default tags array
     }]
   })),
   deleteExam: (id) => store.update(state => ({
@@ -90,7 +98,19 @@ export const examStore = {
         submitted: false
       } : exam
     )
-  }))
+  })),
+  updateExamCategory: (id, category) => store.update(state => ({
+    ...state,
+    exams: state.exams.map(exam =>
+      exam.id === id ? { ...exam, category } : exam
+    )
+  })),
+  updateExamTags: (id, tags) => store.update(state => ({
+    ...state,
+    exams: state.exams.map(exam =>
+      exam.id === id ? { ...exam, tags } : exam
+    )
+  })),
 };
 
 function parseQuestions(rawQuestions) {

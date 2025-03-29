@@ -1,14 +1,12 @@
 import { json } from '@sveltejs/kit';
+import { OPENAI_API_KEY } from '$env/static/private';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
 dotenv.config();
 
 export async function POST({ request }) {
-  // Use process.env instead of the $env module (which is for SvelteKit v2)
-  const apiKey = process.env.OPENAI_API_KEY;
-  
-  if (!apiKey) {
+  if (!OPENAI_API_KEY) {
     return json({ success: false, error: 'API key not configured' }, { status: 500 });
   }
 
@@ -20,7 +18,7 @@ export async function POST({ request }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-3.5-turbo',
@@ -77,7 +75,7 @@ export async function POST({ request }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-3.5-turbo',

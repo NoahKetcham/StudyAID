@@ -18,16 +18,17 @@
 
   // Subscribe to the store properly
   examStore.subscribe(value => {
-    examData = value;
+    examData = value || { exams: [], categories: [] };  // Provide default value
   });
 
-  $: filteredExams = examData?.exams.filter(exam => 
-    exam.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exam.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exam.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+  $: filteredExams = (examData?.exams || []).filter(exam => 
+    exam.title.toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    exam.category.toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (exam.tags || []).some(tag => tag.toLowerCase().includes((searchTerm || '').toLowerCase()))
   );
 
   function sortExams(exams) {
+    if (!Array.isArray(exams)) return [];  // Add safety check
     return [...exams].sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
@@ -81,20 +82,13 @@
         body: JSON.stringify({ courseMaterials })
       });
       
-      // Check for network/server errors first
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server error: ${res.status}`);
-      }
-      
       const data = await res.json();
       
+      if (!res.ok) {
+        throw new Error(data.error || `Server error: ${res.status}`);
+      }
+      
       if (data.success) {
-        // Check if we received valid data
-        if (!data.result?.choices?.[0]?.text) {
-          throw new Error('Received invalid response format from API');
-        }
-        
         const exam = {
           questions: data.result.choices[0].text,
           courseMaterials
@@ -102,17 +96,8 @@
         examStore.addExam(exam);
         success = true;
         courseMaterials = '';
-        
-        // Show specific messages if there were corrections
-        if (data.result.hadCorrections) {
-          console.info('Exam needed corrections:', data.result.corrections);
-        }
-        if (data.result.jsonParseError) {
-          console.warn('There was a JSON parsing error during verification');
-        }
       } else {
         error = data.error || 'Failed to generate exam. Please try again.';
-        console.error('API Error:', data.error);
       }
     } catch (err) {
       console.error('Error generating exam:', err);
@@ -259,7 +244,7 @@
     {/if}
   </button>
 
-  {#if examData?.exams.length > 0}
+  {#if examData?.exams?.length > 0}
     <div class="mt-8">
       <h2 class="text-xl font-semibold mb-4 text-secondary-300">Generated Exams</h2>
       <div class="overflow-x-auto">
@@ -274,13 +259,13 @@
             </tr>
           </thead>
           <tbody>
-            {#each filteredAndSortedExams as exam}
+            {#each filteredAndSortedExams || [] as exam (exam.id)}
               <tr class="border-t border-secondary-200 hover:bg-secondary-100/20">
                 <td class="p-3 text-secondary-300">
-                  {new Date(exam.date).toLocaleDateString()}
+                  {new Date(exam?.date || Date.now()).toLocaleDateString()}
                 </td>
                 <td class="p-3 text-secondary-300">
-                  {#if editingId === exam.id}
+                  {#if editingId === exam?.id}
                     <input
                       type="text"
                       bind:value={editingTitle}
@@ -293,7 +278,7 @@
                       class="text-left w-full hover:text-primary-200"
                       on:click={() => startEditing(exam)}
                     >
-                      {exam.title}
+                      {exam?.title || 'Untitled'}
                     </button>
                   {/if}
                 </td>
@@ -303,14 +288,17 @@
                     on:change={() => examStore.updateExamCategory(exam.id, exam.category)}
                     class="w-full p-1 border rounded"
                   >
-                    {#each examData.categories as category}
-                      <option value={category}>{category}</option>
-                    {/each}
+                    <option value="">Select Category</option>
+                    {#if Array.isArray(examData?.categories) && examData.categories.length > 0}
+                      {#each examData.categories as category}
+                        <option value={category}>{category}</option>
+                      {/each}
+                    {/if}
                   </select>
                 </td>
                 <td class="p-3 text-secondary-300">
                   <div class="flex flex-wrap gap-1">
-                    {#each exam.tags as tag}
+                    {#each exam?.tags || [] as tag}
                       <span class="px-2 py-1 text-xs bg-primary-100 rounded-full flex items-center gap-1">
                         {tag}
                         <button
@@ -321,7 +309,7 @@
                         </button>
                       </span>
                     {/each}
-                    {#if editingTags === exam.id}
+                    {#if editingTags === exam?.id}
                       <input
                         bind:value={newTag}
                         placeholder="Add tag..."
