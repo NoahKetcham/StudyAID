@@ -25,45 +25,48 @@
   function handleAnswer(questionId, answer) {
     if (!exam?.id || !questionId) return;
     
-    // Ensure we're storing the answer in a consistent format
-    let formattedAnswer = answer;
-    if (typeof answer === 'string') {
-        formattedAnswer = answer.trim();
+    // For multiple choice, just store the letter
+    const question = exam.questions.find(q => q.id === questionId);
+    if (question?.type === 'multiple-choice') {
+        const letter = answer.substring(0, 1).toLowerCase();
+        examStore.setUserAnswer(exam.id, questionId, letter);
+    } else {
+        examStore.setUserAnswer(exam.id, questionId, answer.trim());
     }
-    
-    examStore.setUserAnswer(exam.id, questionId, formattedAnswer);
   }
 
   async function submitExam() {
     isEvaluating = true;
     
     try {
-      // First, evaluate written answers
-      const writtenQuestions = exam.questions.filter(q => q.type === 'written');
-      if (writtenQuestions.length > 0) {
-        const response = await fetch('/api/evaluate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            questions: writtenQuestions,
-            userAnswers: exam.userAnswers
-          })
-        });
+        // First, mark the exam as submitted to show multiple choice results immediately
+        examStore.submitExam(exam.id);
+        submitted = true;
 
-        const data = await response.json();
-        if (data.success) {
-          writtenEvaluations = data.evaluations.reduce((acc, evaluation) => {
-            acc[evaluation.questionId] = evaluation;
-            return acc;
-          }, {});
+        // Then, only evaluate written answers
+        const writtenQuestions = exam.questions.filter(q => q.type === 'written');
+        if (writtenQuestions.length > 0) {
+            const response = await fetch('/api/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    questions: writtenQuestions,
+                    userAnswers: exam.userAnswers
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                writtenEvaluations = data.evaluations.reduce((acc, evaluation) => {
+                    acc[evaluation.questionId] = evaluation;
+                    return acc;
+                }, {});
+            }
         }
-      }
     } catch (error) {
-      console.error('Error evaluating written answers:', error);
+        console.error('Error evaluating written answers:', error);
     } finally {
-      isEvaluating = false;
-      examStore.submitExam(exam.id);
-      submitted = true;
+        isEvaluating = false;
     }
   }
 
@@ -82,11 +85,7 @@
     if (!userAnswer) return false;
 
     if (question.type === 'multiple-choice') {
-        // For multiple choice, we need to handle both cases where the answer might be just the option text
-        // or the full option (e.g., "a) 4" vs just "4")
-        const cleanUserAnswer = userAnswer.replace(/^[a-d]\)\s*/, '').trim();
-        const cleanCorrectAnswer = question.correctAnswer.replace(/^[a-d]\)\s*/, '').trim();
-        return cleanUserAnswer === cleanCorrectAnswer;
+        return userAnswer.toLowerCase() === question.correctAnswer.toLowerCase();
     }
     return false; // Written answers are handled separately through evaluation
   }
@@ -142,22 +141,39 @@
               <div class="space-y-2">
                 {#each question.options as option, index}
                   {@const optionLetter = String.fromCharCode(97 + index)}
+                  {@const fullOption = `${optionLetter}) ${option}`}
                   <label class="flex items-center space-x-2 p-2 rounded hover:bg-gray-50"
-                         class:text-green-700={submitted && option === question.correctAnswer}
-                         class:font-semibold={submitted && option === question.correctAnswer}
+                         class:text-green-700={submitted && optionLetter === question.correctAnswer}
+                         class:font-semibold={submitted && optionLetter === question.correctAnswer}
+                         class:bg-green-50={submitted && optionLetter === question.correctAnswer}
+                         class:bg-red-50={submitted && exam.userAnswers[question.id] === optionLetter && optionLetter !== question.correctAnswer}
                   >
                     <input
                       type="radio"
                       name="question_{question.id}"
-                      value={`${optionLetter}) ${option}`}
+                      value={optionLetter}
                       on:change={(e) => handleAnswer(question.id, e.target.value)}
                       disabled={submitted}
-                      checked={exam.userAnswers[question.id] === `${optionLetter}) ${option}`}
+                      checked={exam.userAnswers[question.id] === optionLetter}
                       class="text-primary-400 focus:ring-primary-400"
                     />
-                    <span>{optionLetter}) {option}</span>
+                    <span>{fullOption}</span>
                   </label>
                 {/each}
+
+                {#if submitted}
+                  <div class="mt-4 p-4 rounded border-l-4 transition-colors duration-200"
+                       class:bg-red-50={!isCorrect(question)}
+                       class:border-red-400={!isCorrect(question)}
+                       class:bg-green-50={isCorrect(question)}
+                       class:border-green-400={isCorrect(question)}
+                  >
+                    <p class="font-semibold" class:text-red-700={!isCorrect(question)} class:text-green-700={isCorrect(question)}>
+                      {isCorrect(question) ? 'Correct!' : 'Incorrect'}
+                    </p>
+                    <p class="mt-1">Correct Answer: {question.correctAnswer}) {question.options[question.correctAnswer.charCodeAt(0) - 97]}</p>
+                  </div>
+                {/if}
               </div>
             {:else}
               <div class="space-y-4">
@@ -220,20 +236,6 @@
                     </div>
                   {/if}
                 {/if}
-              </div>
-            {/if}
-
-            {#if submitted && question.type === 'multiple-choice'}
-              <div class="mt-4 p-4 rounded border-l-4 transition-colors duration-200"
-                   class:bg-red-50={!isCorrect(question)}
-                   class:border-red-400={!isCorrect(question)}
-                   class:bg-green-50={isCorrect(question)}
-                   class:border-green-400={isCorrect(question)}
-              >
-                <p class="font-semibold" class:text-red-700={!isCorrect(question)} class:text-green-700={isCorrect(question)}>
-                  {isCorrect(question) ? 'Correct!' : 'Incorrect'}
-                </p>
-                <p class="mt-1">Correct Answer: {question.correctAnswer}</p>
               </div>
             {/if}
           </div>

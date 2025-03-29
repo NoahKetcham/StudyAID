@@ -137,18 +137,22 @@ function parseQuestions(rawQuestions) {
     const isMultipleChoice = options && options.length === 4;
 
     // Extract the answer based on question type
-    let correctAnswer = '';
+    let correctAnswer;
+    
     if (isMultipleChoice) {
-      const answerMatch = answers.match(new RegExp(`Q${questionNumber}\\. ([a-d]\\).*)`));
-      if (answerMatch) {
-        correctAnswer = answerMatch[1].replace(/^[a-d]\)\s*/, '').trim();
+      // Look for the answer in format "Q1. b)" or similar
+      const letterMatch = answers.match(new RegExp(`Q${questionNumber}\\. ([a-d])\\)`, 'i'));
+      correctAnswer = letterMatch ? letterMatch[1].toLowerCase() : '';
+      
+      // If not found, try alternate format "Q1. b" without parenthesis
+      if (!correctAnswer) {
+        const altMatch = answers.match(new RegExp(`Q${questionNumber}\\. ([a-d])(?:\\s|$)`, 'i'));
+        correctAnswer = altMatch ? altMatch[1].toLowerCase() : '';
       }
     } else {
       // Written answer - extract model answer
       const answerMatch = answers.match(new RegExp(`Q${questionNumber}\\. Model answer: (.*?)(?=Q\\d+\\.|$)`, 's'));
-      if (answerMatch) {
-        correctAnswer = answerMatch[1].trim();
-      }
+      correctAnswer = answerMatch ? answerMatch[1].trim() : '';
     }
 
     return {
@@ -156,8 +160,7 @@ function parseQuestions(rawQuestions) {
       text: questionText.split('\n')[0].trim(),
       type: isMultipleChoice ? 'multiple-choice' : 'written',
       options: isMultipleChoice ? options.map(opt => opt.replace(/^[a-d]\)\s*/, '').trim()) : [],
-      correctAnswer,
-      fullQuestion: questionText // Include full question text for written answers
+      correctAnswer: correctAnswer || ''
     };
   });
 
