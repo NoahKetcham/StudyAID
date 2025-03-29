@@ -6,6 +6,8 @@
 
   let exam;
   let submitted = false;
+  let writtenEvaluations = {};
+  let isEvaluating = false;
   
   onMount(() => {
     const id = parseInt($page.params.id);
@@ -24,9 +26,37 @@
     examStore.setUserAnswer(exam.id, questionId, answer);
   }
 
-  function submitExam() {
-    examStore.submitExam(exam.id);
-    submitted = true;
+  async function submitExam() {
+    isEvaluating = true;
+    
+    try {
+      // First, evaluate written answers
+      const writtenQuestions = exam.questions.filter(q => q.type === 'written');
+      if (writtenQuestions.length > 0) {
+        const response = await fetch('/api/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questions: writtenQuestions,
+            userAnswers: exam.userAnswers
+          })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          writtenEvaluations = data.evaluations.reduce((acc, evaluation) => {
+            acc[evaluation.questionId] = evaluation;
+            return acc;
+          }, {});
+        }
+      }
+    } catch (error) {
+      console.error('Error evaluating written answers:', error);
+    } finally {
+      isEvaluating = false;
+      examStore.submitExam(exam.id);
+      submitted = true;
+    }
   }
 
   function retakeExam() {
@@ -43,6 +73,21 @@
       return userAnswer === question.correctAnswer;
     }
     return userAnswer === question.correctAnswer;
+  }
+
+  function getQuestionScore(question) {
+    if (question.type === 'multiple-choice') {
+      return isCorrect(question) ? 100 : 0;
+    } else if (question.type === 'written') {
+      return writtenEvaluations[question.id]?.score || 0;
+    }
+    return 0;
+  }
+
+  function getOverallScore() {
+    if (!exam?.questions) return 0;
+    const totalScore = exam.questions.reduce((sum, q) => sum + getQuestionScore(q), 0);
+    return Math.round(totalScore / exam.questions.length);
   }
 </script>
 
@@ -72,8 +117,8 @@
       <div class="space-y-8">
         {#each exam.questions as question}
           <div class="question-container p-4 rounded-lg transition-colors duration-200"
-               class:bg-red-50={submitted && !isCorrect(question)}
-               class:bg-green-50={submitted && isCorrect(question)}
+               class:bg-red-50={submitted && question.type === 'multiple-choice' && !isCorrect(question)}
+               class:bg-green-50={submitted && question.type === 'multiple-choice' && isCorrect(question)}
           >
             <p class="font-semibold mb-4">Q{question.id}. {question.text}</p>
             
@@ -107,10 +152,56 @@
                   value={exam.userAnswers[question.id] || ''}
                 />
                 {#if submitted}
-                  <div class="mt-4 p-4 bg-blue-50 rounded border-l-4 border-blue-400">
-                    <p class="font-semibold text-blue-700">Model Answer:</p>
-                    <p class="mt-2 text-gray-700 whitespace-pre-wrap">{question.correctAnswer}</p>
-                  </div>
+                  {#if writtenEvaluations[question.id]}
+                    {@const evaluation = writtenEvaluations[question.id]}
+                    <div class="mt-4 p-4 bg-blue-50 rounded border-l-4 border-blue-400">
+                      <div class="flex justify-between items-center">
+                        <p class="font-semibold text-blue-700">Your Score: {evaluation.score}%</p>
+                        <p class="text-sm" class:text-green-600={evaluation.isCorrect} class:text-red-600={!evaluation.isCorrect}>
+                          {evaluation.isCorrect ? 'Demonstrates Understanding' : 'Needs Improvement'}
+                        </p>
+                      </div>
+                      
+                      <div class="mt-4">
+                        <p class="font-medium">Feedback:</p>
+                        <p class="mt-1 text-gray-700">{evaluation.feedback}</p>
+                      </div>
+
+                      {#if evaluation.keyPointsCovered.length > 0}
+                        <div class="mt-3">
+                          <p class="font-medium">Key Points Covered:</p>
+                          <ul class="mt-1 list-disc list-inside text-green-600">
+                            {#each evaluation.keyPointsCovered as point}
+                              <li>{point}</li>
+                            {/each}
+                          </ul>
+                        </div>
+                      {/if}
+
+                      {#if evaluation.missingPoints.length > 0}
+                        <div class="mt-3">
+                          <p class="font-medium">Points to Consider:</p>
+                          <ul class="mt-1 list-disc list-inside text-red-600">
+                            {#each evaluation.missingPoints as point}
+                              <li>{point}</li>
+                            {/each}
+                          </ul>
+                        </div>
+                      {/if}
+
+                      {#if evaluation.suggestions}
+                        <div class="mt-3">
+                          <p class="font-medium">Suggestions for Improvement:</p>
+                          <p class="mt-1 text-gray-700">{evaluation.suggestions}</p>
+                        </div>
+                      {/if}
+                    </div>
+                  {:else}
+                    <div class="mt-4 p-4 bg-gray-50 rounded border-l-4 border-gray-400">
+                      <p class="text-gray-700">Model Answer for Reference:</p>
+                      <p class="mt-2 whitespace-pre-wrap">{question.correctAnswer}</p>
+                    </div>
+                  {/if}
                 {/if}
               </div>
             {/if}
@@ -134,9 +225,12 @@
 
       {#if submitted}
         <div class="mt-8 flex justify-between items-center">
-          <p class="text-xl font-semibold">
-            Score: {exam.questions.filter(q => q.type === 'multiple-choice' && isCorrect(q)).length} / {exam.questions.filter(q => q.type === 'multiple-choice').length} (Multiple Choice)
-          </p>
+          <div>
+            <p class="text-xl font-semibold">Overall Score: {getOverallScore()}%</p>
+            <p class="text-sm text-gray-600 mt-1">
+              Multiple Choice: {exam.questions.filter(q => q.type === 'multiple-choice' && isCorrect(q)).length} / {exam.questions.filter(q => q.type === 'multiple-choice').length}
+            </p>
+          </div>
           <button
             on:click={retakeExam}
             class="px-4 py-2 bg-primary-200 text-white rounded hover:bg-primary-300 transition-colors"
@@ -147,9 +241,15 @@
       {:else}
         <button
           on:click={submitExam}
-          class="mt-8 px-4 py-2 bg-primary-400 text-white rounded hover:bg-primary-300 transition-colors"
+          disabled={isEvaluating}
+          class="mt-8 px-4 py-2 bg-primary-400 text-white rounded hover:bg-primary-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px]"
         >
-          Submit Exam
+          {#if isEvaluating}
+            <span class="inline-block animate-spin mr-2">⟳</span>
+            Evaluating...
+          {:else}
+            Submit Exam
+          {/if}
         </button>
       {/if}
     </div>
