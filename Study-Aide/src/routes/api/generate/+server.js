@@ -27,23 +27,47 @@ export async function POST({ request }) {
             role: 'system',
             content: `You are an expert educational assistant specialized in creating practice exams.
             Follow these guidelines strictly:
-            1. Create exactly 5 questions based on the provided course materials:
-               - 2 multiple choice questions (4 options each)
-               - 2 true/false questions
-               - 1 short answer question
-            2. Format requirements:
+
+            1. Question Generation Rules:
+               - Create exactly 5 questions based on the provided course materials:
+                 • 3 multiple choice questions (4 options each)
+                 • 2 written answer questions
+               - Each question must follow logical progression and build upon core concepts
+               - Questions should range from basic understanding to advanced application
+
+            2. Content Quality Requirements:
+               - All questions must be directly derived from the provided materials
+               - Questions should follow Bloom's Taxonomy levels:
+                 • Knowledge/Recall
+                 • Understanding/Comprehension
+                 • Application/Analysis
+               - Multiple choice distractors must be:
+                 • Plausible but clearly incorrect
+                 • Similar in length and complexity
+                 • Grammatically parallel
+                 • Free of obvious clues or patterns
+
+            3. Format and Grammar Requirements:
                - Number questions as "Q1.", "Q2.", etc.
-               - Multiple choice options must be on new lines as "a)", "b)", "c)", "d)"
-               - True/False options must be "a) True", "b) False"
-               - Short answer question should be answerable in 2-3 sentences
-            3. Ensure all questions:
-               - Are directly related to the course materials
-               - Have clear, unambiguous wording
-               - Test understanding, not just memorization
-               - Have exactly one correct answer
-            4. Answer format:
+               - Multiple choice:
+                 • Options on new lines as "a)", "b)", "c)", "d)"
+                 • Each option must be a complete, grammatical phrase/sentence
+                 • Consistent punctuation and capitalization
+               - Written questions:
+                 • Clear scope for expected answer (1-5 sentences)
+                 • Include specific direction words (explain, analyze, compare, etc.)
+
+            4. Answer Format Requirements:
                - List answers after "ANSWERS:" header
-               - Format as "Q1. b) correct answer text"`
+               - Multiple choice: "Q1. b) [correct answer with explanation]"
+               - Written answers: "Q1. Model answer: [detailed explanation with key points]"
+               - All answers must include brief justification
+
+            5. Quality Control:
+               - Each question must be self-contained and unambiguous
+               - Avoid double negatives or confusing language
+               - Use consistent terminology throughout
+               - Ensure all references are clear and specific`
           },
           {
             role: 'user',
@@ -82,19 +106,41 @@ export async function POST({ request }) {
         messages: [
           {
             role: 'system',
-            content: `You are a quality control expert for educational content. Verify the following exam meets these criteria:
-            1. Exactly 5 questions (2 multiple choice, 2 true/false, 1 short answer)
-            2. All questions have corresponding answers
-            3. Multiple choice questions have exactly 4 options
-            4. True/False questions have exactly 2 options
-            5. Questions are clear and unambiguous
-            6. Answers are properly formatted
-            
-            If any issues are found, provide corrections. Return response as JSON:
+            content: `You are a quality control expert for educational content with expertise in logic and grammar.
+            Verify the exam meets these criteria and provide specific corrections for any issues:
+
+            1. Structural Validation:
+               - Exactly 5 questions (3 multiple choice, 2 written)
+               - All questions have corresponding answers
+               - Multiple choice questions have exactly 4 options
+               - Written questions have detailed model answers
+
+            2. Logical Validation:
+               - Questions follow from the course material context
+               - Each question tests a distinct concept
+               - Multiple choice options are mutually exclusive
+               - Distractors are plausible but clearly incorrect
+
+            3. Grammar and Style Check:
+               - All questions are grammatically correct
+               - Consistent tense and voice throughout
+               - Proper punctuation and capitalization
+               - Clear and unambiguous wording
+
+            4. Answer Quality Check:
+               - Multiple choice answers include explanations
+               - Written answer models are comprehensive
+               - Explanations use proper terminology
+               - Answers directly address the questions
+
+            Return response as JSON:
             {
               "isValid": boolean,
               "issues": string[],
-              "correctedExam": string (only if issues found)
+              "correctedExam": string (include if issues found),
+              "grammarIssues": string[],
+              "logicIssues": string[],
+              "formatIssues": string[]
             }`
           },
           {

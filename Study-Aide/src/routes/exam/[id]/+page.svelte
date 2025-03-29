@@ -75,9 +75,9 @@
                class:bg-red-50={submitted && !isCorrect(question)}
                class:bg-green-50={submitted && isCorrect(question)}
           >
-            <p class="font-semibold mb-4">Q{question.id}. {getQuestionText(question)}</p>
+            <p class="font-semibold mb-4">Q{question.id}. {question.text}</p>
             
-            {#if question.type === 'multiple-choice' || question.type === 'true-false'}
+            {#if question.type === 'multiple-choice'}
               <div class="space-y-2">
                 {#each question.options as option}
                   <label class="flex items-center space-x-2 p-2 rounded hover:bg-gray-50"
@@ -98,16 +98,24 @@
                 {/each}
               </div>
             {:else}
-              <textarea
-                class="w-full p-2 border rounded focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-                placeholder="Enter your answer..."
-                on:input={(e) => handleAnswer(question.id, e.target.value)}
-                disabled={submitted}
-                value={exam.userAnswers[question.id] || ''}
-              />
+              <div class="space-y-4">
+                <textarea
+                  class="w-full p-3 border rounded focus:ring-2 focus:ring-primary-400 focus:border-transparent min-h-[120px]"
+                  placeholder="Enter your answer..."
+                  on:input={(e) => handleAnswer(question.id, e.target.value)}
+                  disabled={submitted}
+                  value={exam.userAnswers[question.id] || ''}
+                />
+                {#if submitted}
+                  <div class="mt-4 p-4 bg-blue-50 rounded border-l-4 border-blue-400">
+                    <p class="font-semibold text-blue-700">Model Answer:</p>
+                    <p class="mt-2 text-gray-700 whitespace-pre-wrap">{question.correctAnswer}</p>
+                  </div>
+                {/if}
+              </div>
             {/if}
 
-            {#if submitted}
+            {#if submitted && question.type === 'multiple-choice'}
               <div class="mt-4 p-4 rounded border-l-4 transition-colors duration-200"
                    class:bg-red-50={!isCorrect(question)}
                    class:border-red-400={!isCorrect(question)}
@@ -127,7 +135,7 @@
       {#if submitted}
         <div class="mt-8 flex justify-between items-center">
           <p class="text-xl font-semibold">
-            Score: {exam.questions.filter(q => isCorrect(q)).length} / {exam.questions.length}
+            Score: {exam.questions.filter(q => q.type === 'multiple-choice' && isCorrect(q)).length} / {exam.questions.filter(q => q.type === 'multiple-choice').length} (Multiple Choice)
           </p>
           <button
             on:click={retakeExam}

@@ -122,27 +122,32 @@ function parseQuestions(rawQuestions) {
     const questionText = q.trim();
     const questionNumber = index + 1;
     
-    // Check if it's multiple choice or true/false
+    // Check if it's multiple choice by looking for options
     const options = questionText.match(/[a-d]\).*$/gm);
-    const isTrueFalse = options && options.length === 2;
-    const isMultipleChoice = options && options.length > 2;
+    const isMultipleChoice = options && options.length === 4;
 
-    // Extract the correct answer and clean it
-    const answerMatch = answers.match(new RegExp(`Q${questionNumber}\\. ([a-d]\\).*)`));
+    // Extract the answer based on question type
     let correctAnswer = '';
-    
-    if (answerMatch) {
-      // Remove the option letter prefix (e.g., "b) ") from the answer
-      correctAnswer = answerMatch[1].replace(/^[a-d]\)\s*/, '').trim();
+    if (isMultipleChoice) {
+      const answerMatch = answers.match(new RegExp(`Q${questionNumber}\\. ([a-d]\\).*)`));
+      if (answerMatch) {
+        correctAnswer = answerMatch[1].replace(/^[a-d]\)\s*/, '').trim();
+      }
+    } else {
+      // Written answer - extract model answer
+      const answerMatch = answers.match(new RegExp(`Q${questionNumber}\\. Model answer: (.*?)(?=Q\\d+\\.|$)`, 's'));
+      if (answerMatch) {
+        correctAnswer = answerMatch[1].trim();
+      }
     }
 
     return {
       id: questionNumber,
       text: questionText.split('\n')[0].trim(),
-      type: isMultipleChoice ? 'multiple-choice' : 
-            isTrueFalse ? 'true-false' : 'short-answer',
-      options: options ? options.map(opt => opt.replace(/^[a-d]\)\s*/, '').trim()) : [],
-      correctAnswer
+      type: isMultipleChoice ? 'multiple-choice' : 'written',
+      options: isMultipleChoice ? options.map(opt => opt.replace(/^[a-d]\)\s*/, '').trim()) : [],
+      correctAnswer,
+      fullQuestion: questionText // Include full question text for written answers
     };
   });
 
