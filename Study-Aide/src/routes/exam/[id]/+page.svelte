@@ -23,7 +23,15 @@
   });
 
   function handleAnswer(questionId, answer) {
-    examStore.setUserAnswer(exam.id, questionId, answer);
+    if (!exam?.id || !questionId) return;
+    
+    // Ensure we're storing the answer in a consistent format
+    let formattedAnswer = answer;
+    if (typeof answer === 'string') {
+        formattedAnswer = answer.trim();
+    }
+    
+    examStore.setUserAnswer(exam.id, questionId, formattedAnswer);
   }
 
   async function submitExam() {
@@ -68,11 +76,19 @@
   }
 
   function isCorrect(question) {
+    if (!exam?.userAnswers || !question) return false;
+    
     const userAnswer = exam.userAnswers[question.id];
-    if (question.type === 'true-false') {
-      return userAnswer === question.correctAnswer;
+    if (!userAnswer) return false;
+
+    if (question.type === 'multiple-choice') {
+        // For multiple choice, we need to handle both cases where the answer might be just the option text
+        // or the full option (e.g., "a) 4" vs just "4")
+        const cleanUserAnswer = userAnswer.replace(/^[a-d]\)\s*/, '').trim();
+        const cleanCorrectAnswer = question.correctAnswer.replace(/^[a-d]\)\s*/, '').trim();
+        return cleanUserAnswer === cleanCorrectAnswer;
     }
-    return userAnswer === question.correctAnswer;
+    return false; // Written answers are handled separately through evaluation
   }
 
   function getQuestionScore(question) {
@@ -124,7 +140,8 @@
             
             {#if question.type === 'multiple-choice'}
               <div class="space-y-2">
-                {#each question.options as option}
+                {#each question.options as option, index}
+                  {@const optionLetter = String.fromCharCode(97 + index)}
                   <label class="flex items-center space-x-2 p-2 rounded hover:bg-gray-50"
                          class:text-green-700={submitted && option === question.correctAnswer}
                          class:font-semibold={submitted && option === question.correctAnswer}
@@ -132,13 +149,13 @@
                     <input
                       type="radio"
                       name="question_{question.id}"
-                      value={option}
-                      on:change={() => handleAnswer(question.id, option)}
+                      value={`${optionLetter}) ${option}`}
+                      on:change={(e) => handleAnswer(question.id, e.target.value)}
                       disabled={submitted}
-                      checked={exam.userAnswers[question.id] === option}
+                      checked={exam.userAnswers[question.id] === `${optionLetter}) ${option}`}
                       class="text-primary-400 focus:ring-primary-400"
                     />
-                    <span>{option}</span>
+                    <span>{optionLetter}) {option}</span>
                   </label>
                 {/each}
               </div>

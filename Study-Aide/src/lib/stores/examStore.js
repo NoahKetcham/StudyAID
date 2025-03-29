@@ -72,17 +72,27 @@ export const examStore = {
       return false;
     }
   },
-  setUserAnswer: (examId, questionId, answer) => store.update(state => ({
-    ...state,
-    exams: state.exams.map(exam =>
-      exam.id === examId
-        ? {
-            ...exam,
-            userAnswers: { ...exam.userAnswers, [questionId]: answer }
-          }
-        : exam
-    )
-  })),
+  setUserAnswer: (examId, questionId, answer) => store.update(state => {
+    // Find the exam
+    const exam = state.exams.find(e => e.id === examId);
+    if (!exam) return state;
+
+    // Create a new userAnswers object if it doesn't exist
+    const updatedExam = {
+      ...exam,
+      userAnswers: {
+        ...exam.userAnswers || {},
+        [questionId]: answer
+      }
+    };
+
+    // Update the exam in the state
+    return {
+      ...state,
+      exams: state.exams.map(e => e.id === examId ? updatedExam : e),
+      currentExam: state.currentExam?.id === examId ? updatedExam : state.currentExam
+    };
+  }),
   submitExam: (id) => store.update(state => ({
     ...state,
     exams: state.exams.map(exam =>
