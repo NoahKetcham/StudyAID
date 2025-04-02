@@ -242,7 +242,7 @@
     </div>
   {/if}
 
-  <div class="flex justify-between items-center mb-6">
+  <div class="flex justify-between items-center mb-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
     <div class="flex gap-2">
       <button
         on:click={() => showCategoryManager = !showCategoryManager}
@@ -254,7 +254,7 @@
     <div class="flex gap-2 items-center">
       <select
         bind:value={sortField}
-        class="px-2 py-1 border rounded text-sm"
+        class="px-2 py-1 border rounded text-sm bg-white text-gray-700 border-gray-300"
       >
         <option value="date">Sort by Date</option>
         <option value="title">Sort by Title</option>
@@ -262,7 +262,7 @@
       </select>
       <select
         bind:value={sortDirection}
-        class="px-2 py-1 border rounded text-sm"
+        class="px-2 py-1 border rounded text-sm bg-white text-gray-700 border-gray-300"
       >
         <option value="desc">Descending</option>
         <option value="asc">Ascending</option>
@@ -271,15 +271,15 @@
   </div>
 
   {#if showCategoryManager}
-    <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-      <h2 class="text-lg font-semibold mb-4">Category Manager</h2>
+    <div class="mb-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+      <h2 class="text-lg font-semibold mb-4 text-secondary-300">Category Manager</h2>
       
       <div class="flex gap-2 mb-4">
         <input
           type="text"
           bind:value={newCategory}
           placeholder="New category name"
-          class="flex-1 px-3 py-1 border rounded focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+          class="flex-1 px-3 py-1 border rounded focus:ring-2 focus:ring-primary-400 focus:border-transparent text-gray-700 border-gray-300"
         />
         <button
           on:click={handleAddCategory}
@@ -293,12 +293,12 @@
       {#if examData.categories.length > 0}
         <div class="space-y-2">
           {#each examData.categories as category}
-            <div class="flex items-center justify-between p-2 bg-white rounded border">
+            <div class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
               {#if editingCategory === category}
                 <input
                   type="text"
                   bind:value={editingCategoryName}
-                  class="flex-1 px-2 py-1 border rounded mr-2"
+                  class="flex-1 px-2 py-1 border rounded mr-2 text-gray-700 border-gray-300"
                 />
                 <div class="flex gap-2">
                   <button
@@ -318,7 +318,7 @@
                   </button>
                 </div>
               {:else}
-                <span>{category}</span>
+                <span class="text-gray-700">{category}</span>
                 <div class="flex gap-2">
                   <button
                     on:click={() => startEditingCategory(category)}
@@ -343,17 +343,16 @@
     </div>
   {/if}
 
-  <!-- Search bar -->
-  <div class="mb-6">
+  <div class="mb-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
     <input
       type="text"
       bind:value={searchTerm}
       placeholder="Search exams..."
-      class="w-full p-2 border border-secondary-200 rounded focus:ring-2 focus:ring-primary-200 focus:border-transparent"
+      class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary-200 focus:border-transparent text-gray-700"
     />
   </div>
 
-  <div class="relative">
+  <div class="relative p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
     {#if isAnalyzing}
       <div class="absolute inset-0 bg-white/50 flex items-center justify-center">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
@@ -385,8 +384,8 @@
 
       {#if showExtractedText}
         <div class="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
-          <h3 class="font-medium mb-2">Extracted Text:</h3>
-          <p class="whitespace-pre-wrap">{extractedText}</p>
+          <h3 class="font-medium mb-2 text-secondary-300">Extracted Text:</h3>
+          <p class="whitespace-pre-wrap text-gray-700">{extractedText}</p>
         </div>
       {/if}
     {/if}
@@ -396,7 +395,7 @@
       bind:value={courseMaterials}
       on:paste={handlePaste}
       placeholder="Paste your course materials here. You can also paste images directly into this box."
-      class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+      class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent text-gray-700 border-gray-300"
     ></textarea>
 
     <div class="mt-4 mb-4">
@@ -409,7 +408,7 @@
       <select
         id="category"
         bind:value={selectedCategory}
-        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent text-gray-700 border-gray-300 bg-white"
       >
         <option value="">No Category</option>
         {#each examData.categories as category}
@@ -419,21 +418,23 @@
     </div>
   </div>
   
-  <button
-    on:click={generatePracticeExam}
-    class="px-4 py-2 rounded bg-primary-400 text-white hover:bg-primary-300 transition-colors duration-200 flex items-center justify-center min-w-[200px]"
-    disabled={loading}
-  >
-    {#if loading}
-      <span class="inline-block animate-spin mr-2">⟳</span>
-      Generating...
-    {:else}
-      Generate Practice Exam
-    {/if}
-  </button>
+  <div class="flex justify-center mb-8">
+    <button
+      on:click={generatePracticeExam}
+      class="px-4 py-2 rounded bg-primary-400 text-white hover:bg-primary-300 transition-colors duration-200 flex items-center justify-center min-w-[200px]"
+      disabled={loading}
+    >
+      {#if loading}
+        <span class="inline-block animate-spin mr-2">⟳</span>
+        Generating...
+      {:else}
+        Generate Practice Exam
+      {/if}
+    </button>
+  </div>
 
   {#if examData?.exams?.length > 0}
-    <div class="mt-8">
+    <div class="mt-8 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
       <h2 class="text-xl font-semibold mb-4 text-secondary-300">Generated Exams</h2>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse bg-white shadow-sm rounded-lg">
@@ -457,7 +458,7 @@
                     <input
                       type="text"
                       bind:value={editingTitle}
-                      class="w-full p-1 border rounded"
+                      class="w-full p-1 border rounded text-gray-700 border-gray-300"
                       on:blur={saveTitle}
                       on:keydown={e => e.key === 'Enter' && saveTitle()}
                     />
@@ -474,7 +475,7 @@
                   <select
                     bind:value={exam.category}
                     on:change={() => examStore.updateExamCategory(exam.id, exam.category)}
-                    class="w-full p-1 border rounded"
+                    class="w-full p-1 border rounded text-gray-700 border-gray-300 bg-white"
                   >
                     <option value="">Select Category</option>
                     {#if Array.isArray(examData?.categories) && examData.categories.length > 0}
@@ -501,7 +502,7 @@
                       <input
                         bind:value={newTag}
                         placeholder="Add tag..."
-                        class="px-2 py-1 text-xs border rounded"
+                        class="px-2 py-1 text-xs border rounded text-gray-700 border-gray-300"
                         on:keydown={e => e.key === 'Enter' && addTag(exam.id)}
                       />
                     {:else}
