@@ -43,7 +43,7 @@ export const examStore = {
       date: new Date().toISOString(),
       userAnswers: {},
       submitted: false,
-      category: '',  // Add default category
+      category: exam.category || '',  // Use provided category or empty string
       tags: []  // Add default tags array
     }]
   })),
@@ -121,6 +121,41 @@ export const examStore = {
       exam.id === id ? { ...exam, tags } : exam
     )
   })),
+  addCategory: (category) => store.update(state => {
+    const normalizedCategory = category.trim();
+    if (!normalizedCategory || state.categories.includes(normalizedCategory)) {
+      return state;
+    }
+    return {
+      ...state,
+      categories: [...state.categories, normalizedCategory].sort()
+    };
+  }),
+  removeCategory: (category) => store.update(state => {
+    // Remove category from list and update all exams using this category
+    return {
+      ...state,
+      categories: state.categories.filter(c => c !== category),
+      exams: state.exams.map(exam => ({
+        ...exam,
+        category: exam.category === category ? '' : exam.category
+      }))
+    };
+  }),
+  updateCategory: (oldCategory, newCategory) => store.update(state => {
+    const normalizedNewCategory = newCategory.trim();
+    if (!normalizedNewCategory || state.categories.includes(normalizedNewCategory)) {
+      return state;
+    }
+    return {
+      ...state,
+      categories: [...state.categories.filter(c => c !== oldCategory), normalizedNewCategory].sort(),
+      exams: state.exams.map(exam => ({
+        ...exam,
+        category: exam.category === oldCategory ? normalizedNewCategory : exam.category
+      }))
+    };
+  }),
 };
 
 function parseQuestions(rawQuestions) {

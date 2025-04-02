@@ -3,6 +3,7 @@
   import { examStore } from '$lib/stores/examStore';
 
   let courseMaterials = '';
+  let selectedCategory = '';
   let loading = false;
   let error = '';
   let success = false;
@@ -18,6 +19,9 @@
   let isAnalyzing = false;
   let extractedText = '';
   let showExtractedText = false;
+  let editingCategory = null;
+  let editingCategoryName = '';
+  let showCategoryManager = false;
 
   // Subscribe to the store properly
   examStore.subscribe(value => {
@@ -94,11 +98,13 @@
       if (data.success) {
         const exam = {
           questions: data.result.choices[0].text,
-          courseMaterials
+          courseMaterials,
+          category: selectedCategory
         };
         examStore.addExam(exam);
         success = true;
         courseMaterials = '';
+        selectedCategory = '';
       } else {
         error = data.error || 'Failed to generate exam. Please try again.';
       }
@@ -129,33 +135,6 @@
     const exam = examData.exams.find(e => e.id === examId);
     const updatedTags = exam.tags.filter(t => t !== tag);
     examStore.updateExamTags(examId, updatedTags);
-  }
-
-  function exportExams() {
-    const dataStr = examStore.exportExams();
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'study-aide-exams.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
-  async function importExams(event) {
-    const file = event.target.files[0];
-    if (file) {
-      const text = await file.text();
-      if (examStore.importExams(text)) {
-        success = true;
-        setTimeout(() => success = false, 3000);
-      } else {
-        error = 'Failed to import exams. Invalid file format.';
-        setTimeout(() => error = '', 3000);
-      }
-    }
   }
 
   async function handlePaste(event) {
@@ -220,6 +199,32 @@
       showExtractedText = false;
     }
   }
+
+  function handleAddCategory() {
+    if (newCategory.trim()) {
+      examStore.addCategory(newCategory.trim());
+      newCategory = '';
+    }
+  }
+
+  function startEditingCategory(category) {
+    editingCategory = category;
+    editingCategoryName = category;
+  }
+
+  function saveCategory() {
+    if (editingCategory && editingCategoryName.trim()) {
+      examStore.updateCategory(editingCategory, editingCategoryName.trim());
+      editingCategory = null;
+      editingCategoryName = '';
+    }
+  }
+
+  function deleteCategory(category) {
+    if (confirm(`Are you sure you want to delete the category "${category}"? This will remove the category from all exams using it.`)) {
+      examStore.removeCategory(category);
+    }
+  }
 </script>
 
 <div class="p-4 max-w-xl mx-auto">
@@ -240,20 +245,11 @@
   <div class="flex justify-between items-center mb-6">
     <div class="flex gap-2">
       <button
-        on:click={exportExams}
+        on:click={() => showCategoryManager = !showCategoryManager}
         class="px-3 py-1 text-sm bg-primary-200 text-white rounded hover:bg-primary-300 transition-colors"
       >
-        Export Exams
+        Manage Categories
       </button>
-      <label class="px-3 py-1 text-sm bg-primary-200 text-white rounded hover:bg-primary-300 transition-colors cursor-pointer">
-        Import Exams
-        <input
-          type="file"
-          accept=".json"
-          on:change={importExams}
-          class="hidden"
-        />
-      </label>
     </div>
     <div class="flex gap-2 items-center">
       <select
@@ -273,6 +269,79 @@
       </select>
     </div>
   </div>
+
+  {#if showCategoryManager}
+    <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <h2 class="text-lg font-semibold mb-4">Category Manager</h2>
+      
+      <div class="flex gap-2 mb-4">
+        <input
+          type="text"
+          bind:value={newCategory}
+          placeholder="New category name"
+          class="flex-1 px-3 py-1 border rounded focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+        />
+        <button
+          on:click={handleAddCategory}
+          disabled={!newCategory.trim()}
+          class="px-3 py-1 bg-primary-400 text-white rounded hover:bg-primary-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Add Category
+        </button>
+      </div>
+
+      {#if examData.categories.length > 0}
+        <div class="space-y-2">
+          {#each examData.categories as category}
+            <div class="flex items-center justify-between p-2 bg-white rounded border">
+              {#if editingCategory === category}
+                <input
+                  type="text"
+                  bind:value={editingCategoryName}
+                  class="flex-1 px-2 py-1 border rounded mr-2"
+                />
+                <div class="flex gap-2">
+                  <button
+                    on:click={saveCategory}
+                    class="text-sm text-green-600 hover:text-green-500"
+                  >
+                    Save
+                  </button>
+                  <button
+                    on:click={() => {
+                      editingCategory = null;
+                      editingCategoryName = '';
+                    }}
+                    class="text-sm text-gray-600 hover:text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              {:else}
+                <span>{category}</span>
+                <div class="flex gap-2">
+                  <button
+                    on:click={() => startEditingCategory(category)}
+                    class="text-sm text-blue-600 hover:text-blue-500"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    on:click={() => deleteCategory(category)}
+                    class="text-sm text-red-600 hover:text-red-500"
+                  >
+                    Delete
+                  </button>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <p class="text-gray-500 text-center py-4">No categories yet. Add one above!</p>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Search bar -->
   <div class="mb-6">
@@ -329,6 +398,25 @@
       placeholder="Paste your course materials here. You can also paste images directly into this box."
       class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
     ></textarea>
+
+    <div class="mt-4 mb-4">
+      <label for="category" class="block mb-2 font-semibold text-secondary-300">
+        Select Category
+        <span class="text-sm font-normal text-gray-600">
+          (optional)
+        </span>
+      </label>
+      <select
+        id="category"
+        bind:value={selectedCategory}
+        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+      >
+        <option value="">No Category</option>
+        {#each examData.categories as category}
+          <option value={category}>{category}</option>
+        {/each}
+      </select>
+    </div>
   </div>
   
   <button
