@@ -15,6 +15,7 @@
   let newCategory = '';
   let newTag = '';
   let editingTags = null;
+  let isAnalyzing = false;
 
   // Subscribe to the store properly
   examStore.subscribe(value => {
@@ -154,6 +155,61 @@
       }
     }
   }
+
+  async function handlePaste(event) {
+    const clipboardItems = event.clipboardData.items;
+    const imageItem = Array.from(clipboardItems).find(item => item.type.startsWith('image'));
+    
+    if (imageItem) {
+        event.preventDefault();
+        isAnalyzing = true;
+        error = '';
+        
+        try {
+            const blob = imageItem.getAsFile();
+            const base64Image = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Failed to read image'));
+                reader.readAsDataURL(blob);
+            });
+
+            console.log('Sending image to API...'); // Debug log
+
+            const response = await fetch('/api/analyze-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64Image })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to analyze image');
+            }
+
+            const data = await response.json();
+            
+            if (!data.text) {
+                throw new Error('No text was extracted from the image');
+            }
+            
+            // Add the extracted text to the course materials
+            const cursorPosition = event.target.selectionStart;
+            const currentValue = courseMaterials;
+            courseMaterials = currentValue.slice(0, cursorPosition) + 
+                            '\n\n--- Extracted from Image ---\n' + 
+                            data.text + 
+                            '\n------------------------\n\n' + 
+                            currentValue.slice(cursorPosition);
+            
+        } catch (err) {
+            console.error('Error processing image:', err);
+            error = err.message || 'Failed to process image. Please try again.';
+        } finally {
+            isAnalyzing = false;
+        }
+    }
+  }
 </script>
 
 <div class="p-4 max-w-xl mx-auto">
@@ -217,19 +273,27 @@
     />
   </div>
 
-  <label for="materials" class="block mb-2 font-semibold text-secondary-300">
-    Enter your course materials
-    <span class="text-sm font-normal text-gray-600">
-      (textbook chapters, lecture notes, or key concepts)
-    </span>
-  </label>
-  
-  <textarea
-    id="materials"
-    bind:value={courseMaterials}
-    placeholder="Enter your course materials here..."
-    class="w-full h-40 mb-4 p-2 border border-secondary-200 rounded focus:ring-2 focus:ring-primary-200 focus:border-transparent"
-  />
+  <div class="relative">
+    {#if isAnalyzing}
+      <div class="absolute inset-0 bg-white/50 flex items-center justify-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+      </div>
+    {/if}
+    <label for="materials" class="block mb-2 font-semibold text-secondary-300">
+      Enter your course materials
+      <span class="text-sm font-normal text-gray-600">
+        (textbook chapters, lecture notes, or key concepts)
+      </span>
+    </label>
+    
+    <textarea
+      id="materials"
+      bind:value={courseMaterials}
+      on:paste={handlePaste}
+      placeholder="Paste your course materials here. You can also paste images directly into this box."
+      class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+    ></textarea>
+  </div>
   
   <button
     on:click={generatePracticeExam}
