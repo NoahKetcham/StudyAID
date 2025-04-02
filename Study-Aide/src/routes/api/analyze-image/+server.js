@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { OPENAI_API_KEY } from '$env/static/private';
+import Tesseract from 'tesseract.js';
 
 export async function POST({ request }) {
     try {
@@ -9,7 +10,14 @@ export async function POST({ request }) {
             return json({ error: 'No image provided' }, { status: 400 });
         }
 
-        // Call OpenAI's Vision API to analyze the image
+        // First, extract text from the image using Tesseract OCR
+        const { data: { text: ocrResult } } = await Tesseract.recognize(
+            image,
+            'eng',
+            { logger: m => console.log(m) }
+        );
+
+        // Then, send the extracted text to GPT for analysis
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -17,22 +25,11 @@ export async function POST({ request }) {
                 'Authorization': `Bearer ${OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-                model: "gpt-4-vision-preview",
+                model: "gpt-4",
                 messages: [
                     {
                         role: "user",
-                        content: [
-                            {
-                                type: "text",
-                                text: "Please analyze this image and extract any text content, particularly focusing on educational content, questions, or study materials. Format the text in a clean, readable way."
-                            },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: image.startsWith('data:image') ? image : `data:image/jpeg;base64,${image}`
-                                }
-                            }
-                        ]
+                        content: `Analyze the following text: ${ocrResult}`
                     }
                 ],
                 max_tokens: 500
@@ -42,7 +39,7 @@ export async function POST({ request }) {
         if (!response.ok) {
             const errorData = await response.json();
             console.error('OpenAI API Error:', errorData);
-            throw new Error(errorData.error?.message || 'Failed to analyze image');
+            throw new Error(errorData.error?.message || 'Failed to analyze text');
         }
 
         const data = await response.json();
@@ -50,7 +47,7 @@ export async function POST({ request }) {
 
         return json({ text: extractedText });
     } catch (error) {
-        console.error('Error analyzing image:', error);
-        return json({ error: error.message || 'Failed to analyze image' }, { status: 500 });
+        console.error('Error processing image:', error);
+        return json({ error: error.message || 'Failed to process image' }, { status: 500 });
     }
 } 
