@@ -16,6 +16,8 @@
   let newTag = '';
   let editingTags = null;
   let isAnalyzing = false;
+  let extractedText = '';
+  let showExtractedText = false;
 
   // Subscribe to the store properly
   examStore.subscribe(value => {
@@ -193,14 +195,9 @@
                 throw new Error('No text was extracted from the image');
             }
             
-            // Add the extracted text to the course materials
-            const cursorPosition = event.target.selectionStart;
-            const currentValue = courseMaterials;
-            courseMaterials = currentValue.slice(0, cursorPosition) + 
-                            '\n\n--- Extracted from Image ---\n' + 
-                            data.text + 
-                            '\n------------------------\n\n' + 
-                            currentValue.slice(cursorPosition);
+            // Store the extracted text separately
+            extractedText = data.text;
+            showExtractedText = true;
             
         } catch (err) {
             console.error('Error processing image:', err);
@@ -208,6 +205,19 @@
         } finally {
             isAnalyzing = false;
         }
+    }
+  }
+
+  function appendExtractedText() {
+    if (extractedText) {
+      const cursorPosition = document.getElementById('materials').selectionStart;
+      courseMaterials = courseMaterials.slice(0, cursorPosition) + 
+                      '\n\n--- Extracted from Image ---\n' + 
+                      extractedText + 
+                      '\n------------------------\n\n' + 
+                      courseMaterials.slice(cursorPosition);
+      extractedText = '';
+      showExtractedText = false;
     }
   }
 </script>
@@ -248,18 +258,19 @@
     <div class="flex gap-2 items-center">
       <select
         bind:value={sortField}
-        class="p-1 border rounded"
+        class="px-2 py-1 border rounded text-sm"
       >
-        <option value="date">Date</option>
-        <option value="title">Title</option>
-        <option value="category">Category</option>
+        <option value="date">Sort by Date</option>
+        <option value="title">Sort by Title</option>
+        <option value="category">Sort by Category</option>
       </select>
-      <button
-        on:click={() => sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'}
-        class="px-2 py-1 text-sm bg-secondary-200 rounded"
+      <select
+        bind:value={sortDirection}
+        class="px-2 py-1 border rounded text-sm"
       >
-        {sortDirection === 'asc' ? '↑' : '↓'}
-      </button>
+        <option value="desc">Descending</option>
+        <option value="asc">Ascending</option>
+      </select>
     </div>
   </div>
 
@@ -279,12 +290,37 @@
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
       </div>
     {/if}
+    
     <label for="materials" class="block mb-2 font-semibold text-secondary-300">
       Enter your course materials
       <span class="text-sm font-normal text-gray-600">
         (textbook chapters, lecture notes, or key concepts)
       </span>
     </label>
+
+    {#if extractedText}
+      <div class="mb-4 flex items-center justify-between">
+        <button
+          on:click={() => showExtractedText = !showExtractedText}
+          class="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+        >
+          {showExtractedText ? 'Hide' : 'Show'} Extracted Text
+        </button>
+        <button
+          on:click={appendExtractedText}
+          class="text-sm bg-primary-400 text-white px-3 py-1 rounded hover:bg-primary-300 transition-colors"
+        >
+          Add to Materials
+        </button>
+      </div>
+
+      {#if showExtractedText}
+        <div class="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
+          <h3 class="font-medium mb-2">Extracted Text:</h3>
+          <p class="whitespace-pre-wrap">{extractedText}</p>
+        </div>
+      {/if}
+    {/if}
     
     <textarea
       id="materials"
