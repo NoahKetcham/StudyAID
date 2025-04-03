@@ -22,6 +22,8 @@
   let editingCategory = null;
   let editingCategoryName = '';
   let showCategoryManager = false;
+  let multipleChoiceCount = 3;
+  let writtenCount = 2;
 
   // Subscribe to the store properly
   examStore.subscribe(value => {
@@ -81,12 +83,22 @@
       loading = false;
       return;
     }
+    
+    if (multipleChoiceCount + writtenCount < 1) {
+      error = 'Please select at least one question to generate';
+      loading = false;
+      return;
+    }
 
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseMaterials })
+        body: JSON.stringify({ 
+          courseMaterials,
+          multipleChoiceCount,
+          writtenCount 
+        })
       });
       
       const data = await res.json();
@@ -417,12 +429,46 @@
         {/each}
       </select>
     </div>
+
+    <div class="mt-4 mb-4">
+      <label class="block mb-2 font-semibold text-secondary-300">
+        Number of Questions
+      </label>
+      <div class="flex gap-4">
+        <div class="flex-1">
+          <label for="multipleChoiceCount" class="block mb-1 text-sm text-gray-600">
+            Multiple Choice
+          </label>
+          <input
+            id="multipleChoiceCount"
+            type="number"
+            min="0"
+            max="20"
+            bind:value={multipleChoiceCount}
+            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+          />
+        </div>
+        <div class="flex-1">
+          <label for="writtenCount" class="block mb-1 text-sm text-gray-600">
+            Long Answer
+          </label>
+          <input
+            id="writtenCount"
+            type="number"
+            min="0"
+            max="10"
+            bind:value={writtenCount}
+            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+          />
+        </div>
+      </div>
+    </div>
   </div>
   
   <button
     on:click={generatePracticeExam}
     class="px-4 py-2 rounded bg-primary-400 text-white hover:bg-primary-300 transition-colors duration-200 flex items-center justify-center min-w-[200px]"
-    disabled={loading}
+    disabled={loading || (multipleChoiceCount + writtenCount < 1)}
   >
     {#if loading}
       <span class="inline-block animate-spin mr-2">⟳</span>

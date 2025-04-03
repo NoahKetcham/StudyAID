@@ -10,7 +10,10 @@ export async function POST({ request }) {
     return json({ success: false, error: 'API key not configured' }, { status: 500 });
   }
 
-  const { courseMaterials } = await request.json();
+  const { courseMaterials, multipleChoiceCount = 3, writtenCount = 2 } = await request.json();
+  
+  // Calculate total number of questions
+  const numberOfQuestions = multipleChoiceCount + writtenCount;
 
   try {
     // First generation
@@ -29,9 +32,9 @@ export async function POST({ request }) {
             Follow these guidelines strictly:
 
             1. Question Generation Rules:
-               - Create exactly 5 questions based on the provided course materials:
-                 • 3 multiple choice questions (4 options each)
-                 • 2 written answer questions
+               - Create exactly ${numberOfQuestions} questions based on the provided course materials:
+                 • ${multipleChoiceCount} multiple choice questions (4 options each)
+                 • ${writtenCount} written answer questions
                - Each question must follow logical progression and build upon core concepts
                - Questions should range from basic understanding to advanced application
 
@@ -110,7 +113,7 @@ export async function POST({ request }) {
             Verify the exam meets these criteria and provide specific corrections for any issues:
 
             1. Structural Validation:
-               - Exactly 5 questions (3 multiple choice, 2 written)
+               - Exactly ${numberOfQuestions} questions (${multipleChoiceCount} multiple choice, ${writtenCount} written)
                - All questions have corresponding answers
                - Multiple choice questions have exactly 4 options
                - Written questions have detailed model answers
