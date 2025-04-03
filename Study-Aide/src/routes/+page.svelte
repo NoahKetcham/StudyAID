@@ -24,6 +24,8 @@
   let showCategoryManager = false;
   let multipleChoiceCount = 3;
   let writtenCount = 2;
+  let isUploadingPowerPoint = false;
+  let powerpointError = '';
 
   // Subscribe to the store properly
   examStore.subscribe(value => {
@@ -201,7 +203,8 @@
 
   function appendExtractedText() {
     if (extractedText) {
-      const cursorPosition = document.getElementById('materials').selectionStart;
+      const textarea = document.getElementById('course-materials');
+      const cursorPosition = textarea ? textarea.selectionStart : courseMaterials.length;
       courseMaterials = courseMaterials.slice(0, cursorPosition) + 
                       '\n\n--- Extracted from Image ---\n' + 
                       extractedText + 
@@ -237,6 +240,49 @@
       examStore.removeCategory(category);
     }
   }
+
+  async function handlePowerPointUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    isUploadingPowerPoint = true;
+    powerpointError = '';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/parse-powerpoint', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to parse PowerPoint file');
+      }
+
+      if (data.success) {
+        // Append the PowerPoint content to the course materials
+        const textarea = document.getElementById('course-materials');
+        const cursorPosition = textarea ? textarea.selectionStart : courseMaterials.length;
+        courseMaterials = courseMaterials.slice(0, cursorPosition) + 
+                        '\n\n--- PowerPoint Content ---\n' + 
+                        data.content + 
+                        '\n------------------------\n\n' + 
+                        courseMaterials.slice(cursorPosition);
+      } else {
+        throw new Error(data.error || 'Failed to process PowerPoint file');
+      }
+    } catch (err) {
+      console.error('Error processing PowerPoint:', err);
+      powerpointError = err.message || 'Failed to process PowerPoint file';
+    } finally {
+      isUploadingPowerPoint = false;
+      event.target.value = ''; // Reset file input
+    }
+  }
 </script>
 
 <div class="p-4 max-w-xl mx-auto">
@@ -251,6 +297,12 @@
   {#if success}
     <div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
       Practice exam generated successfully!
+    </div>
+  {/if}
+
+  {#if powerpointError}
+    <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+      {powerpointError}
     </div>
   {/if}
 
@@ -365,6 +417,35 @@
     />
   </div>
 
+  <div class="mb-4">
+    <label for="course-materials" class="block text-sm font-medium text-gray-700 mb-2">
+      Course Materials
+    </label>
+    <div class="flex gap-2 mb-2">
+      <input
+        type="file"
+        accept=".ppt,.pptx"
+        on:change={handlePowerPointUpload}
+        class="hidden"
+        id="powerpoint-upload"
+        disabled={isUploadingPowerPoint}
+      />
+      <label
+        for="powerpoint-upload"
+        class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isUploadingPowerPoint ? 'Uploading...' : 'Upload PowerPoint'}
+      </label>
+    </div>
+    <textarea
+      id="course-materials"
+      bind:value={courseMaterials}
+      on:paste={handlePaste}
+      class="w-full h-64 p-2 border rounded"
+      placeholder="Paste your course materials here or upload a PowerPoint file..."
+    ></textarea>
+  </div>
+
   <div class="relative">
     {#if isAnalyzing}
       <div class="absolute inset-0 bg-white/50 flex items-center justify-center">
@@ -402,65 +483,57 @@
         </div>
       {/if}
     {/if}
-    
-    <textarea
-      id="materials"
-      bind:value={courseMaterials}
-      on:paste={handlePaste}
-      placeholder="Paste your course materials here. You can also paste images directly into this box."
-      class="w-full h-64 p-4 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-    ></textarea>
+  </div>
+  
+  <div class="mt-4 mb-4">
+    <label for="category" class="block mb-2 font-semibold text-secondary-300">
+      Select Category
+      <span class="text-sm font-normal text-gray-600">
+        (optional)
+      </span>
+    </label>
+    <select
+      id="category"
+      bind:value={selectedCategory}
+      class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+    >
+      <option value="">No Category</option>
+      {#each examData.categories as category}
+        <option value={category}>{category}</option>
+      {/each}
+    </select>
+  </div>
 
-    <div class="mt-4 mb-4">
-      <label for="category" class="block mb-2 font-semibold text-secondary-300">
-        Select Category
-        <span class="text-sm font-normal text-gray-600">
-          (optional)
-        </span>
-      </label>
-      <select
-        id="category"
-        bind:value={selectedCategory}
-        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-      >
-        <option value="">No Category</option>
-        {#each examData.categories as category}
-          <option value={category}>{category}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="mt-4 mb-4">
-      <label class="block mb-2 font-semibold text-secondary-300">
-        Number of Questions
-      </label>
-      <div class="flex gap-4">
-        <div class="flex-1">
-          <label for="multipleChoiceCount" class="block mb-1 text-sm text-gray-600">
-            Multiple Choice
-          </label>
-          <input
-            id="multipleChoiceCount"
-            type="number"
-            min="0"
-            max="20"
-            bind:value={multipleChoiceCount}
-            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-          />
-        </div>
-        <div class="flex-1">
-          <label for="writtenCount" class="block mb-1 text-sm text-gray-600">
-            Long Answer
-          </label>
-          <input
-            id="writtenCount"
-            type="number"
-            min="0"
-            max="10"
-            bind:value={writtenCount}
-            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-          />
-        </div>
+  <div class="mt-4 mb-4">
+    <label class="block mb-2 font-semibold text-secondary-300">
+      Number of Questions
+    </label>
+    <div class="flex gap-4">
+      <div class="flex-1">
+        <label for="multipleChoiceCount" class="block mb-1 text-sm text-gray-600">
+          Multiple Choice
+        </label>
+        <input
+          id="multipleChoiceCount"
+          type="number"
+          min="0"
+          max="20"
+          bind:value={multipleChoiceCount}
+          class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+        />
+      </div>
+      <div class="flex-1">
+        <label for="writtenCount" class="block mb-1 text-sm text-gray-600">
+          Long Answer
+        </label>
+        <input
+          id="writtenCount"
+          type="number"
+          min="0"
+          max="10"
+          bind:value={writtenCount}
+          class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+        />
       </div>
     </div>
   </div>
